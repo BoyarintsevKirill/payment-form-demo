@@ -21,9 +21,9 @@ function formatCardNumber(value: string): string {
 }
 
 function formatExpiry(value: string, prevValue: string): string {
-  // If user is deleting the slash character, remove the digit before it too
+  // If user is deleting the slash, keep remaining digits as-is
   if (prevValue.endsWith('/') && value.length < prevValue.length) {
-    return value.replace(/\D/g, '').slice(0, 1);
+    return value.replace(/\D/g, '');
   }
 
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -348,7 +348,7 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
         </p>
       </form>
 
-      <details className={styles.demoHint}>
+      <details className={styles.demoHint} aria-label="Тестовые сценарии для разработки">
         <summary>Тестовые сценарии</summary>
         <ul>
           <li><strong>Успешная оплата</strong> -- любая карта, проходящая Luhn (напр. 4242 4242 4242 4242)</li>
