@@ -10,7 +10,7 @@ import type {
   FormStatus,
   PaymentResponse,
 } from '@/types/payment';
-import { calculateTotal } from '@/utils/order';
+import { calculateTotal, formatCurrency } from '@/utils/order';
 import styles from './PaymentForm.module.css';
 
 // --- Input formatting helpers ---
@@ -21,17 +21,16 @@ function formatCardNumber(value: string): string {
 }
 
 function formatExpiry(value: string, prevValue: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 4);
-
-  // User is deleting the slash
-  if (prevValue.length === 4 && value.length === 3 && prevValue[2] === '/') {
-    return digits.slice(0, 1);
+  // If user is deleting the slash character, remove the digit before it too
+  if (prevValue.endsWith('/') && value.length < prevValue.length) {
+    return value.replace(/\D/g, '').slice(0, 1);
   }
 
+  const digits = value.replace(/\D/g, '').slice(0, 4);
   if (digits.length >= 3) {
     return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   }
-  if (digits.length === 2 && value.length > prevValue.length) {
+  if (digits.length === 2 && value.length >= prevValue.length) {
     return `${digits}/`;
   }
   return digits;
@@ -64,7 +63,7 @@ const brandLabels: Record<CardBrand, string> = {
 
 function CardIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="1" y="4" width="22" height="16" rx="3" />
       <line x1="1" y1="10" x2="23" y2="10" />
     </svg>
@@ -73,7 +72,7 @@ function CardIcon() {
 
 function LockIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0110 0v4" />
     </svg>
@@ -82,7 +81,7 @@ function LockIcon() {
 
 function CheckIcon() {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <svg aria-hidden="true" width="48" height="48" viewBox="0 0 48 48" fill="none">
       <circle cx="24" cy="24" r="24" fill="var(--color-success)" opacity="0.12" />
       <path d="M15 24l6 6 12-12" stroke="var(--color-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -137,7 +136,8 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
       setStatus('loading');
       setErrorMessage('');
 
-      const [expiryMonth = '', expiryYear = ''] = data.expiry.split('/');
+      const [expiryMonth = '', rawYear = ''] = data.expiry.split('/');
+      const expiryYear = `20${rawYear}`;
 
       try {
         const response = await submitPayment({
@@ -339,11 +339,7 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
               <Spinner /> Обработка...
             </>
           ) : (
-            `Оплатить ${new Intl.NumberFormat('ru-RU', {
-              style: 'currency',
-              currency: order.currency,
-              minimumFractionDigits: 0,
-            }).format(total)}`
+            `Оплатить ${formatCurrency(total, order.currency)}`
           )}
         </button>
 
