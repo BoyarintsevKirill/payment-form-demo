@@ -32,6 +32,7 @@ function isExpiryValid(expiry: string): boolean {
 
   if (year < currentYear) return false;
   if (year === currentYear && month < currentMonth) return false;
+  if (year > currentYear + 10) return false;
 
   return true;
 }
@@ -56,7 +57,7 @@ export const paymentSchema = z.object({
   expiry: z
     .string()
     .regex(/^(0[1-9]|1[0-2])\/\d{2}$/, 'Формат: MM/YY')
-    .refine(isExpiryValid, 'Срок действия карты истек'),
+    .refine(isExpiryValid, 'Некорректный срок действия карты'),
 
   cvv: z
     .string()
