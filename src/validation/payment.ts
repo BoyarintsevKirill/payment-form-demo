@@ -40,6 +40,7 @@ export const paymentSchema = z.object({
   cardHolder: z
     .string()
     .min(2, 'Укажите имя держателя карты')
+    .max(50, 'Имя слишком длинное')
     .regex(/^[a-zA-Zа-яА-ЯёЁ\s\-'.]+$/, 'Имя содержит недопустимые символы'),
 
   cardNumber: z
@@ -64,6 +65,7 @@ export const paymentSchema = z.object({
   email: z
     .string()
     .min(1, 'Укажите email')
+    .max(254, 'Email слишком длинный')
     .email('Некорректный email'),
 
   termsAccepted: z
