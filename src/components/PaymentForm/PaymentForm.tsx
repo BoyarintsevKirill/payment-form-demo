@@ -117,7 +117,7 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
     formState: { errors, isValid },
   } = useForm<PaymentFormInput, unknown, PaymentFormOutput>({
     resolver: zodResolver(paymentSchema),
-    mode: 'onTouched',
+    mode: 'onChange',
     defaultValues: {
       cardHolder: '',
       cardNumber: '',
@@ -204,16 +204,17 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
         noValidate
         aria-label="Форма оплаты"
       >
-        <h2 className={styles.formTitle}>Данные карты</h2>
+        <fieldset className={styles.fieldset} disabled={isLoading}>
+          <legend className={styles.legend}>Данные карты</legend>
 
-        <FormField
-          label="Имя на карте"
-          placeholder="IVAN IVANOV"
-          autoComplete="cc-name"
-          error={errors.cardHolder?.message}
-          disabled={isLoading}
-          {...register('cardHolder')}
-        />
+          <FormField
+            label="Имя на карте"
+            placeholder="IVAN IVANOV"
+            autoComplete="cc-name"
+            error={errors.cardHolder?.message}
+            disabled={isLoading}
+            {...register('cardHolder')}
+          />
 
         <Controller
           name="cardNumber"
@@ -282,9 +283,13 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
             )}
           />
         </div>
+        </fieldset>
 
-        <FormField
-          label="Email для чека"
+        <fieldset className={styles.fieldset} disabled={isLoading}>
+          <legend className={styles.legend}>Контакт</legend>
+
+          <FormField
+            label="Email для чека"
           placeholder="you@example.com"
           type="email"
           autoComplete="email"
@@ -292,6 +297,7 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
           disabled={isLoading}
           {...register('email')}
         />
+        </fieldset>
 
         <label className={styles.checkbox} htmlFor="terms-checkbox">
           <input
