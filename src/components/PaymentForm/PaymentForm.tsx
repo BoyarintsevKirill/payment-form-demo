@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormField } from '@/components/ui/FormField';
+import { CardIcon, LockIcon, CheckIcon, Spinner } from '@/components/ui/Icons';
 import { OrderSummary } from './OrderSummary';
 import { paymentSchema, type PaymentFormInput, type PaymentFormOutput } from '@/validation/payment';
 import { submitPayment } from '@/api/payment';
@@ -11,96 +12,15 @@ import type {
   PaymentResponse,
 } from '@/types/payment';
 import { calculateTotal, formatCurrency } from '@/utils/order';
+import { formatCardNumber, formatExpiry, formatCvv } from '@/utils/formatters';
+import { detectCardBrand, brandLabels } from '@/utils/card';
 import styles from './PaymentForm.module.css';
-
-// --- Input formatting helpers ---
-
-function formatCardNumber(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 19);
-  return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
-}
-
-function formatExpiry(value: string, prevValue: string): string {
-  // If user is deleting the slash, keep remaining digits as-is
-  if (prevValue.endsWith('/') && value.length < prevValue.length) {
-    return value.replace(/\D/g, '');
-  }
-
-  const digits = value.replace(/\D/g, '').slice(0, 4);
-  if (digits.length >= 3) {
-    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  }
-  if (digits.length === 2 && value.length >= prevValue.length) {
-    return `${digits}/`;
-  }
-  return digits;
-}
-
-function formatCvv(value: string): string {
-  return value.replace(/\D/g, '').slice(0, 4);
-}
-
-// --- Card brand detection ---
-
-type CardBrand = 'visa' | 'mastercard' | 'mir' | 'unknown';
-
-function detectCardBrand(number: string): CardBrand {
-  const digits = number.replace(/\s/g, '');
-  if (/^4/.test(digits)) return 'visa';
-  if (/^(5[1-5]|222[1-9]|22[3-9]\d|2[3-6]\d{2}|27[01]\d|2720)/.test(digits)) return 'mastercard';
-  if (/^220[0-4]/.test(digits)) return 'mir';
-  return 'unknown';
-}
-
-const brandLabels: Record<CardBrand, string> = {
-  visa: 'Visa',
-  mastercard: 'Mastercard',
-  mir: 'МИР',
-  unknown: '',
-};
-
-// --- Icons ---
-
-function CardIcon() {
-  return (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1" y="4" width="22" height="16" rx="3" />
-      <line x1="1" y1="10" x2="23" y2="10" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0110 0v4" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg aria-hidden="true" width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <circle cx="24" cy="24" r="24" fill="var(--color-success)" opacity="0.12" />
-      <path d="M15 24l6 6 12-12" stroke="var(--color-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function Spinner() {
-  return <span className={styles.spinner} aria-hidden="true" />;
-}
-
-// --- Props ---
 
 interface PaymentFormProps {
   order: OrderSummaryType;
   onSuccess?: (response: PaymentResponse) => void;
   onError?: (error: string) => void;
 }
-
-// --- Component ---
 
 export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
   const [status, setStatus] = useState<FormStatus>('idle');
@@ -176,16 +96,13 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
     setErrorMessage('');
   }, []);
 
-  // --- Success state ---
   if (status === 'success') {
     return (
       <div className={styles.container}>
         <div className={styles.successCard}>
           <CheckIcon />
           <h2 className={styles.successTitle}>Оплата прошла успешно</h2>
-          <p className={styles.successText}>
-            Чек отправлен на вашу почту
-          </p>
+          <p className={styles.successText}>Чек отправлен на вашу почту</p>
           <p className={styles.txnId}>Транзакция: {txnId}</p>
         </div>
       </div>
@@ -216,73 +133,73 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
             {...register('cardHolder')}
           />
 
-        <Controller
-          name="cardNumber"
-          control={control}
-          render={({ field }) => (
-            <FormField
-              label="Номер карты"
-              placeholder="0000 0000 0000 0000"
-              inputMode="numeric"
-              autoComplete="cc-number"
-              icon={<CardIcon />}
-              error={errors.cardNumber?.message}
-              disabled={isLoading}
-              value={field.value}
-              onChange={(e) => field.onChange(formatCardNumber(e.target.value))}
-              onBlur={field.onBlur}
-              ref={field.ref}
-            />
+          <Controller
+            name="cardNumber"
+            control={control}
+            render={({ field }) => (
+              <FormField
+                label="Номер карты"
+                placeholder="0000 0000 0000 0000"
+                inputMode="numeric"
+                autoComplete="cc-number"
+                icon={<CardIcon />}
+                error={errors.cardNumber?.message}
+                disabled={isLoading}
+                value={field.value}
+                onChange={(e) => field.onChange(formatCardNumber(e.target.value))}
+                onBlur={field.onBlur}
+                ref={field.ref}
+              />
+            )}
+          />
+
+          {brand !== 'unknown' && (
+            <p className={styles.brandBadge}>{brandLabels[brand]}</p>
           )}
-        />
 
-        {brand !== 'unknown' && (
-          <p className={styles.brandBadge}>{brandLabels[brand]}</p>
-        )}
+          <div className={styles.row}>
+            <Controller
+              name="expiry"
+              control={control}
+              render={({ field }) => (
+                <FormField
+                  label="Срок (MM/YY)"
+                  placeholder="01/28"
+                  inputMode="numeric"
+                  autoComplete="cc-exp"
+                  error={errors.expiry?.message}
+                  disabled={isLoading}
+                  value={field.value}
+                  onChange={(e) =>
+                    field.onChange(formatExpiry(e.target.value, field.value))
+                  }
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                />
+              )}
+            />
 
-        <div className={styles.row}>
-          <Controller
-            name="expiry"
-            control={control}
-            render={({ field }) => (
-              <FormField
-                label="Срок (MM/YY)"
-                placeholder="01/28"
-                inputMode="numeric"
-                autoComplete="cc-exp"
-                error={errors.expiry?.message}
-                disabled={isLoading}
-                value={field.value}
-                onChange={(e) =>
-                  field.onChange(formatExpiry(e.target.value, field.value))
-                }
-                onBlur={field.onBlur}
-                ref={field.ref}
-              />
-            )}
-          />
-
-          <Controller
-            name="cvv"
-            control={control}
-            render={({ field }) => (
-              <FormField
-                label="CVV"
-                placeholder="123"
-                inputMode="numeric"
-                autoComplete="cc-csc"
-                type="password"
-                icon={<LockIcon />}
-                error={errors.cvv?.message}
-                disabled={isLoading}
-                value={field.value}
-                onChange={(e) => field.onChange(formatCvv(e.target.value))}
-                onBlur={field.onBlur}
-                ref={field.ref}
-              />
-            )}
-          />
-        </div>
+            <Controller
+              name="cvv"
+              control={control}
+              render={({ field }) => (
+                <FormField
+                  label="CVV"
+                  placeholder="123"
+                  inputMode="numeric"
+                  autoComplete="cc-csc"
+                  type="password"
+                  icon={<LockIcon />}
+                  error={errors.cvv?.message}
+                  disabled={isLoading}
+                  value={field.value}
+                  onChange={(e) => field.onChange(formatCvv(e.target.value))}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                />
+              )}
+            />
+          </div>
         </fieldset>
 
         <fieldset className={styles.fieldset} disabled={isLoading}>
@@ -290,13 +207,13 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
 
           <FormField
             label="Email для чека"
-          placeholder="you@example.com"
-          type="email"
-          autoComplete="email"
-          error={errors.email?.message}
-          disabled={isLoading}
-          {...register('email')}
-        />
+            placeholder="you@example.com"
+            type="email"
+            autoComplete="email"
+            error={errors.email?.message}
+            disabled={isLoading}
+            {...register('email')}
+          />
         </fieldset>
 
         <label className={styles.checkbox} htmlFor="terms-checkbox">
@@ -342,7 +259,7 @@ export function PaymentForm({ order, onSuccess, onError }: PaymentFormProps) {
         >
           {isLoading ? (
             <>
-              <Spinner /> Обработка...
+              <Spinner className={styles.spinner} /> Обработка...
             </>
           ) : (
             `Оплатить ${formatCurrency(total, order.currency)}`
